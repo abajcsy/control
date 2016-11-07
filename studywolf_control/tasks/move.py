@@ -20,6 +20,22 @@ import controllers.forcefield as forcefield
 
 import numpy as np
 
+def get_line_traj(start, goal, num_waypoints):
+	(sx, sy) = start
+	(gx, gy) = goal
+	traj_x = [None]*num_waypoints
+	traj_y = [None]*num_waypoints
+	
+	dist_x = gx-sx
+	dist_y = gy-sy	
+	
+	traj_x[0] = sx
+	traj_y[0] = sy
+	for i in range(1,num_waypoints):
+		traj_x[i] = traj_x[i-1]+dist_x/(num_waypoints-1)
+		traj_y[i] = traj_y[i-1]+dist_y/(num_waypoints-1)
+	return (traj_x, traj_y)
+
 def Task(arm, controller_class, x_bias=0., y_bias=2., dist=.4, 
          force=None, write_to_file=False, sequence=None, **kwargs):
 	"""
@@ -36,7 +52,7 @@ def Task(arm, controller_class, x_bias=0., y_bias=2., dist=.4,
 	if arm.DOF == 2:
 		dist = .075
 		kp = 20 # position error gain on the PD controller
-		threshold = .01 
+		threshold = .05 
 		y_bias = .35
 	elif arm.DOF == 3:
 		kp = 100 
@@ -46,25 +62,28 @@ def Task(arm, controller_class, x_bias=0., y_bias=2., dist=.4,
 
 	# generate the path to follow -------------
 	# set up the reaching trajectories, 8 points around unit circle
-	targets_x = [dist * np.cos(theta) + x_bias \
-		            for theta in np.linspace(0, np.pi*2, 9)][:-1]
-	targets_y = [dist * np.sin(theta) + y_bias \
-		            for theta in np.linspace(0, np.pi*2, 9)][:-1]
-	trajectory = np.ones((3*len(targets_x)+3, 2))*np.nan
+	#targets_x = [dist * np.cos(theta) + x_bias \
+	#	            for theta in np.linspace(0, np.pi*2, 9)][:-1]
+	#targets_y = [dist * np.sin(theta) + y_bias \
+	#	            for theta in np.linspace(0, np.pi*2, 9)][:-1]
+	#trajectory = np.ones((3*len(targets_x)+3, 2))*np.nan
+
+	#start = 0 if sequence is None else int(sequence)
+	#for ii in range(start,len(targets_x)): 
+	#	trajectory[ii*3+1] = [0, y_bias]
+	#	trajectory[ii*3+2] = [targets_x[ii], targets_y[ii]]
+	#trajectory[-2] = [0, y_bias]
+
+	num_waypoints = 2
+	(traj_x, traj_y) = get_line_traj((-0.4, 0.0), (0.2,0.5), num_waypoints)
 
 	start = 0 if sequence is None else int(sequence)
-	for ii in range(start,len(targets_x)): 
-		trajectory[ii*3+1] = [0, y_bias]
-		trajectory[ii*3+2] = [targets_x[ii], targets_y[ii]]
-	trajectory[-2] = [0, y_bias]
+	trajectory = np.ones((num_waypoints+2, 2))*np.nan
+
+	for ii in range(num_waypoints): 
+		trajectory[ii+1] = [traj_x[ii], traj_y[ii]]
 
 	print "trajectory: "
-	print trajectory
-
-	trajectory = np.ones((3, 2))*np.nan
-	trajectory[0] = [np.nan, np.nan]
-	trajectory[1] = [0.0 , 0.35]
-	trajectory[2] = [0.075, 0.40]
 	print trajectory
 
 	# generate control shell -----------------
@@ -82,7 +101,7 @@ def Task(arm, controller_class, x_bias=0., y_bias=2., dist=.4,
 		            write_to_file=write_to_file)
 
 	control_pars = {'target_list':trajectory,
-		            'threshold':threshold} # how close to get to each target}
+		            'threshold':threshold, 'pen_down':True} # how close to get to each target}
 	control_shell = target_list.Shell(controller=controller, **control_pars)
 
 	# generate runner parameters -----------

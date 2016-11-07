@@ -90,7 +90,7 @@ class Shell(object):
                 self.set_target()
 
                 self.not_at_start = not self.not_at_start
-                self.pen_down = not self.pen_down
+                self.pen_down =  self.pen_down # not was before in front of self.pen_down
 
                 self.timer = 0
                 self.run_timer = False
